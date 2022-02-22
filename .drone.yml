@@ -10,10 +10,6 @@ environment:
   REGISTRY: docker.io
 
   # ! Need to be provided by CI/CD secrets:
-  REGISTRY_USER:
-    from_secret: docker_username
-  REGISTRY_PASS:
-    from_secret: docker_password
 
   # Che repos
   DEVFILE_SOURCE: https://github.com/eclipse/che-devfile-registry.git
@@ -32,6 +28,11 @@ steps:
     - ./build.sh --organization ${ORGANIZATION} --registry ${REGISTRY} --tag ${TAG} --offline
 
     - podman push --creds "${REGISTRY_USER}:${REGISTRY_PASS}" "${REGISTRY}/${ORGANIZATION}/che-devfile-registry:${TAG}"
+  environment:
+    REGISTRY_USER:
+      from_secret: docker_username
+    REGISTRY_PASS:
+      from_secret: docker_password
 
 - name: build-plugin
   image: debian:bullseye-slim
@@ -47,7 +48,11 @@ steps:
     - export "PATH=\$PATH:./node_modules/.bin"
     - yarn config set enableTelemetry false
 
-    - ./build.sh --organization ${ORGANIZATION} --registry ${REGISTRY} --tag ${TAG} --offline 
+    - ./build.sh --organization ${ORGANIZATION} --registry ${REGISTRY} --tag ${TAG} --offline
 
     - podman push --creds "${REGISTRY_USER}:${REGISTRY_PASS}" "${REGISTRY}/${ORGANIZATION}/che-plugin-registry:${TAG}"
-
+  environment:
+    REGISTRY_USER:
+      from_secret: docker_username
+    REGISTRY_PASS:
+      from_secret: docker_password
