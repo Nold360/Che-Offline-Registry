@@ -1,0 +1,53 @@
+---
+kind: pipeline
+name: eclipse-che-offline-registry
+type: kubernetes
+
+environment:
+  CHE_VERSION: 7.42.x
+  TAG: 7.42.x
+  ORGANIZATION: lib42
+  REGISTRY: docker.io
+
+  # ! Need to be provided by CI/CD secrets:
+  REGISTRY_USER:
+    from_secret: docker_username
+  REGISTRY_PASS:
+    from_secret: docker_password
+
+  # Che repos
+  DEVFILE_SOURCE: https://github.com/eclipse/che-devfile-registry.git
+  PLUGIN_SOURCE: https://github.com/eclipse/che-plugin-registry.git
+
+steps:
+- name: build-devfile
+  image: debian:bullseye-slim
+  script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends podman
+
+    - git clone --depth=1 -b${CHE_VERSION} ${DEVFILE_SOURCE} devfile
+
+    - cd devfile
+    - ./build.sh --organization ${ORGANIZATION} --registry ${REGISTRY} --tag ${TAG} --offline
+
+    - podman push --creds "${REGISTRY_USER}:${REGISTRY_PASS}" "${REGISTRY}/${ORGANIZATION}/che-devfile-registry:${TAG}"
+
+- name: build-plugin
+  image: debian:bullseye-slim
+  script:
+    - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+    - echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list
+    - apt-get update
+    - apt-get install -y --no-install-recommends nodejs yarn podman git
+
+    - git clone --depth=1 -b${CHE_VERSION} ${PLUGIN_SOURCE} plugin
+    - cd plugin
+
+    - export "PATH=\$PATH:./node_modules/.bin"
+    - yarn config set enableTelemetry false
+
+    - ./build.sh --organization ${ORGANIZATION} --registry ${REGISTRY} --tag ${TAG} --offline 
+
+    - podman push --creds "${REGISTRY_USER}:${REGISTRY_PASS}" "${REGISTRY}/${ORGANIZATION}/che-plugin-registry:${TAG}"
+
